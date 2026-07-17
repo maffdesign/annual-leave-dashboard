@@ -119,6 +119,17 @@ export interface Database {
           over_threshold: boolean;
         }[];
       };
+      get_team_calendar: {
+        Args: { p_start: string; p_end: string };
+        Returns: {
+          name: string;
+          dept: string | null;
+          position: string | null;
+          type: LeaveType;
+          start_date: string;
+          end_date: string;
+        }[];
+      };
     };
     Enums: {
       user_role: UserRole;
