@@ -2,36 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  CalendarDays,
-  ClipboardList,
-  LayoutDashboard,
-  LogOut,
-  PlusCircle,
-  Users,
-  CheckSquare,
-} from "lucide-react";
+import { LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "@/app/login/actions";
+import { adminNav, employeeNav, type NavItem } from "./nav-items";
 import type { UserRole } from "@/types";
-
-type NavItem = {
-  href: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-};
-
-const employeeNav: NavItem[] = [
-  { href: "/dashboard", label: "내 연차 현황", icon: LayoutDashboard },
-  { href: "/requests", label: "내 신청 내역", icon: ClipboardList },
-  { href: "/requests/new", label: "연차 신청", icon: PlusCircle },
-];
-
-const adminNav: NavItem[] = [
-  { href: "/admin", label: "전 직원 현황", icon: Users },
-  { href: "/admin/approvals", label: "승인 대기", icon: CheckSquare },
-  { href: "/admin/calendar", label: "팀 캘린더", icon: CalendarDays },
-];
 
 export function Sidebar({ role, name }: { role: UserRole; name: string }) {
   const pathname = usePathname();
