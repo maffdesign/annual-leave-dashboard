@@ -1,12 +1,6 @@
-import { CalendarDays } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { LoginForm } from "./login-form";
+import { CalendarDays } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { LoginForm } from './login-form';
 
 export default function LoginPage() {
   return (
@@ -17,9 +11,7 @@ export default function LoginPage() {
             <CalendarDays className="h-6 w-6" />
           </div>
           <h1 className="text-xl font-bold">연차 관리 대시보드</h1>
-          <p className="text-sm text-muted-foreground">
-            사내 연차 신청·승인·현황 관리
-          </p>
+          <p className="text-sm text-muted-foreground">사내 연차 신청·승인·현황 관리</p>
         </div>
 
         <Card>
@@ -36,7 +28,7 @@ export default function LoginPage() {
         <div className="rounded-lg border border-dashed bg-card p-4 text-xs text-muted-foreground">
           <p className="mb-1 font-medium text-foreground">데모 계정</p>
           <p>관리자 · admin@demo.com / demo1234</p>
-          <p>직원 · user@demo.com / demo1234</p>
+          <p>직원 · user1@demo.com / demo1234</p>
         </div>
       </div>
     </main>
