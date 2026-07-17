@@ -3,8 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentEmployee } from "@/queries/auth";
+import { notifyLeaveCancelledByAdmin } from "@/lib/notify";
 
 export type AdminActionResult = { error?: string };
+
+type CancelInfo = {
+  start_date: string;
+  end_date: string;
+  status: string;
+  employee: { name: string; dept: string | null } | null;
+};
 
 /**
  * [v2] 관리자 시기변경권 — 예외적으로 등록된 연차를 취소.
@@ -24,6 +32,19 @@ export async function adminCancelLeave(
 
   const supabase = await createClient();
 
+  // 알림용 정보 조회 (대상 직원·기간)
+  const { data, error: fetchErr } = await supabase
+    .from("leave_requests")
+    .select(
+      `start_date, end_date, status, employee:employees!leave_requests_employee_id_fkey ( name, dept )`,
+    )
+    .eq("id", requestId)
+    .single();
+
+  const info = data as unknown as CancelInfo | null;
+  if (fetchErr || !info) return { error: "연차를 찾을 수 없습니다." };
+  if (info.status !== "approved") return { error: "이미 처리된 연차입니다." };
+
   const { error } = await supabase
     .from("leave_requests")
     .update({
@@ -35,6 +56,16 @@ export async function adminCancelLeave(
     .eq("status", "approved");
 
   if (error) return { error: error.message };
+
+  // Slack FYI 알림 (실패해도 취소 처리엔 영향 없음)
+  await notifyLeaveCancelledByAdmin({
+    employeeName: info.employee?.name ?? "-",
+    dept: info.employee?.dept ?? null,
+    adminName: admin.name,
+    startDate: info.start_date,
+    endDate: info.end_date,
+    reason: trimmed,
+  });
 
   revalidatePath("/admin/registrations");
   revalidatePath("/admin");
