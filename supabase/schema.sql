@@ -7,7 +7,8 @@
 create type user_role      as enum ('admin', 'employee');
 create type grant_type     as enum ('hire_date', 'fiscal_year');  -- 입사일/회계연도 기준
 create type leave_type     as enum ('full_day', 'half_day');      -- 종일/반차
-create type request_status as enum ('pending', 'approved', 'rejected');
+-- v2: 자동 등록제. 'pending'/'rejected'는 하위호환용으로 남겨두되 신규 흐름은 사용하지 않음.
+create type request_status as enum ('pending', 'approved', 'rejected', 'cancelled');
 
 -- ── 1. 직원 (employees) ─────────────────────────────────────
 create table public.employees (
@@ -43,7 +44,8 @@ create table public.leave_requests (
   type        leave_type not null default 'full_day',
   days        numeric(4,1) not null,
   reason      text,
-  status      request_status not null default 'pending',
+  status      request_status not null default 'approved',  -- v2: 등록 시 즉시 승인
+  coverage_warning boolean not null default false,          -- v2: 부서 커버리지 경고 여부
   approver_id uuid references public.employees(id) on delete set null,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now(),
@@ -123,6 +125,98 @@ before update on public.leave_requests
 for each row execute function public.set_updated_at();
 
 -- ============================================================
+-- 5b. [v2] 잔여 초과 하드 가드레일 — 등록 자체를 DB에서 차단
+--     자동 등록제에서 클라이언트가 우회해도 규칙이 지켜지도록 트리거로 강제.
+-- ============================================================
+create or replace function public.enforce_leave_balance()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_remaining numeric;
+  v_year int := extract(year from new.start_date)::int;
+begin
+  if new.status = 'approved' then
+    select granted + carried_over - used into v_remaining
+    from public.leave_balances
+    where employee_id = new.employee_id and year = v_year;
+
+    if v_remaining is null then
+      raise exception '연차 잔여 정보가 없습니다. (%년)', v_year;
+    end if;
+    if new.days > v_remaining then
+      raise exception '잔여 연차(%일)를 초과했습니다. 신청 %일', v_remaining, new.days;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger trg_enforce_balance
+before insert on public.leave_requests
+for each row execute function public.enforce_leave_balance();
+
+-- ============================================================
+-- 5c. [v2] 부서 커버리지(같은 부서 동시 연차 비율) 계산 — soft 가드레일
+--     등록을 막지 않고 비율/초과여부만 반환(경고용).
+--     일반 직원도 타 직원 연차 집계를 쓸 수 있도록 security definer.
+-- ============================================================
+create or replace function public.department_coverage(
+  p_employee_id uuid,
+  p_start date,
+  p_end date
+)
+returns table (
+  dept_size int,
+  peak_count int,
+  peak_ratio numeric,
+  threshold numeric,
+  over_threshold boolean
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_dept text;
+  v_size int;
+  v_threshold numeric := 0.5;   -- 50%
+  v_peak int := 0;
+  v_day date;
+  v_cnt int;
+begin
+  select dept into v_dept from public.employees where id = p_employee_id;
+  select count(*) into v_size
+  from public.employees
+  where coalesce(dept, '') = coalesce(v_dept, '');
+
+  v_day := p_start;
+  while v_day <= p_end loop
+    select count(distinct r.employee_id) into v_cnt
+    from public.leave_requests r
+    join public.employees e on e.id = r.employee_id
+    where r.status = 'approved'
+      and r.employee_id <> p_employee_id
+      and coalesce(e.dept, '') = coalesce(v_dept, '')
+      and r.start_date <= v_day and r.end_date >= v_day;
+    if v_cnt > v_peak then v_peak := v_cnt; end if;
+    v_day := v_day + 1;
+  end loop;
+
+  dept_size := v_size;
+  peak_count := v_peak + 1;  -- 신청자 포함
+  peak_ratio := case when v_size > 0 then round((v_peak + 1)::numeric / v_size, 2) else 0 end;
+  threshold := v_threshold;
+  over_threshold := (v_size > 0) and ((v_peak + 1)::numeric / v_size > v_threshold);
+  return next;
+end;
+$$;
+
+grant execute on function public.department_coverage(uuid, date, date) to anon, authenticated;
+
+-- ============================================================
 -- 6. RLS (Row Level Security)
 -- ============================================================
 alter table public.employees      enable row level security;
@@ -154,8 +248,14 @@ create policy balances_admin_write on public.leave_balances for all
 
 create policy requests_select on public.leave_requests for select
   using (employee_id = public.current_employee_id() or public.is_admin());
+-- v2: 본인 것을 즉시 'approved'로 등록 (잔여 검증은 trigger가 강제)
 create policy requests_insert on public.leave_requests for insert
-  with check (employee_id = public.current_employee_id() and status = 'pending');
+  with check (employee_id = public.current_employee_id() and status = 'approved');
+-- v2: 본인 연차 셀프 취소 (상태를 'cancelled'로만 변경 가능)
+create policy requests_self_cancel on public.leave_requests for update
+  using (employee_id = public.current_employee_id())
+  with check (employee_id = public.current_employee_id() and status = 'cancelled');
+-- 관리자 시기변경권 (예외적 개입)
 create policy requests_admin_update on public.leave_requests for update
   using (public.is_admin()) with check (public.is_admin());
 

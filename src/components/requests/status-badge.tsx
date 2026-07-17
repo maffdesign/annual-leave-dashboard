@@ -5,6 +5,7 @@ const variantMap: Record<RequestStatus, BadgeProps["variant"]> = {
   pending: "warning",
   approved: "success",
   rejected: "destructive",
+  cancelled: "secondary",
 };
 
 export function StatusBadge({ status }: { status: RequestStatus }) {

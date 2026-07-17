@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { LeaveRequest, LeaveRequestWithEmployee, RequestStatus } from "@/types";
+import type { LeaveRequest, LeaveRequestWithEmployee } from "@/types";
 
 /** 특정 직원의 신청 내역 (본인 화면용) */
 export async function getMyRequests(employeeId: string): Promise<LeaveRequest[]> {
@@ -16,22 +16,20 @@ export async function getMyRequests(employeeId: string): Promise<LeaveRequest[]>
 }
 
 /**
- * 관리자용 신청 목록 (신청자 정보 조인).
- * status로 필터 (예: 'pending' → 승인 대기 목록).
+ * [v2] 관리자 등록 현황 피드 — 최근 등록된(approved) 연차 (신청자 조인).
  */
-export async function getRequests(
-  status?: RequestStatus,
+export async function getRegistrations(
+  limit = 100,
 ): Promise<LeaveRequestWithEmployee[]> {
   const supabase = await createClient();
 
-  let query = supabase
+  const { data, error } = await supabase
     .from("leave_requests")
     .select(`*, employee:employees!leave_requests_employee_id_fkey ( id, name, dept, position )`)
-    .order("created_at", { ascending: false });
+    .eq("status", "approved")
+    .order("created_at", { ascending: false })
+    .limit(limit);
 
-  if (status) query = query.eq("status", status);
-
-  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as unknown as LeaveRequestWithEmployee[];
 }

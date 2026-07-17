@@ -28,21 +28,22 @@ export default async function NewRequestPage() {
             내 신청 내역
           </Link>
         </Button>
-        <h1 className="text-2xl font-bold">연차 신청</h1>
+        <h1 className="text-2xl font-bold">연차 등록</h1>
         <p className="text-sm text-muted-foreground">
-          기간과 유형을 선택하면 신청일수가 자동 계산됩니다.
+          결재 없이 즉시 등록됩니다. 기간·유형만 선택하세요.
         </p>
       </header>
 
       <Card>
         <CardHeader>
-          <CardTitle>신청 정보</CardTitle>
+          <CardTitle>등록 정보</CardTitle>
           <CardDescription>
-            현재 잔여 연차 {remaining}일 · 초과 신청은 불가합니다.
+            현재 잔여 연차 {remaining}일 · 잔여 초과는 등록 불가, 부서 집중은 경고로
+            안내됩니다.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <RequestForm remaining={remaining} />
+          <RequestForm remaining={remaining} employeeId={employee.id} />
         </CardContent>
       </Card>
     </div>
