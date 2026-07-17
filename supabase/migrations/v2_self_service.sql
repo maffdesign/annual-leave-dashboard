@@ -108,8 +108,10 @@ create policy requests_insert on public.leave_requests for insert
   with check (employee_id = public.current_employee_id() and status = 'approved');
 
 drop policy if exists requests_self_cancel on public.leave_requests;
+-- 주의: 방금 ALTER TYPE 로 추가한 'cancelled'는 같은 트랜잭션에서 enum 값으로
+-- 직접 쓸 수 없으므로(55P04), status::text 로 비교해 우회한다.
 create policy requests_self_cancel on public.leave_requests for update
   using (employee_id = public.current_employee_id())
-  with check (employee_id = public.current_employee_id() and status = 'cancelled');
+  with check (employee_id = public.current_employee_id() and status::text = 'cancelled');
 
 -- (requests_admin_update 정책은 그대로 유지: 관리자 시기변경권)
