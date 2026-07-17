@@ -90,7 +90,7 @@ export default async function CalendarPage({
         <div>
           <h1 className="text-2xl font-bold">팀 연차 캘린더</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            승인된 연차 · {leaves.length}건
+            등록된 연차 · {leaves.length}건
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -207,7 +207,7 @@ export default async function CalendarPage({
       </Card>
 
       <p className="text-xs text-muted-foreground">
-        전 직원의 승인된 연차가 표시됩니다. 하루 3명 이상 연차 시 인원 배지로
+        전 직원의 등록된 연차가 표시됩니다. 하루 3명 이상 연차 시 인원 배지로
         안내됩니다. (업무 공백 확인용)
       </p>
     </div>
