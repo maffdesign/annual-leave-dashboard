@@ -87,8 +87,17 @@ export default async function RequestsPage() {
                       </TableCell>
                       <TableCell>{LEAVE_TYPE_LABEL[r.type]}</TableCell>
                       <TableCell className="text-right">{r.days}일</TableCell>
-                      <TableCell className="max-w-[200px] text-muted-foreground">
+                      <TableCell className="max-w-[220px] text-muted-foreground">
                         <div className="truncate">{r.reason ?? "-"}</div>
+                        {r.coverage_warning && (
+                          <div className="mt-0.5 flex items-start gap-1 text-xs text-amber-600 dark:text-amber-400">
+                            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                            <span>
+                              부서 집중 경고: 등록일에 같은 부서 연차가 권장
+                              한도(50%)를 초과했습니다.
+                            </span>
+                          </div>
+                        )}
                         {r.status === "cancelled" && r.cancel_reason && (
                           <div
                             className="mt-0.5 truncate text-xs text-amber-600 dark:text-amber-400"

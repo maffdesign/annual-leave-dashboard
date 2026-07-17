@@ -1,8 +1,7 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getCurrentEmployee } from "@/queries/auth";
-import { getApprovedInRange } from "@/queries/requests";
+import { getTeamCalendar } from "@/queries/requests";
 import { LEAVE_TYPE_LABEL } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,20 +20,27 @@ function parseDate(s: string) {
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
+type CalPerson = {
+  name: string;
+  position: string | null;
+  dept: string | null;
+  type: string;
+};
+
 export default async function CalendarPage({
   searchParams,
 }: {
   searchParams: Promise<{ month?: string }>;
 }) {
   const employee = await getCurrentEmployee();
-  if (employee?.role !== "admin") redirect("/dashboard");
+  if (!employee) return null; // 레이아웃 가드에서 처리됨 (전 직원 접근 가능)
 
   const { month } = await searchParams;
 
   // 기준 연·월 결정 (?month=YYYY-MM, 기본: 이번 달)
   const today = new Date();
   let year = today.getFullYear();
-  let mon = today.getMonth(); // 0-indexed
+  let mon = today.getMonth();
   if (month && /^\d{4}-\d{2}$/.test(month)) {
     const [y, m] = month.split("-").map(Number);
     year = y;
@@ -47,11 +53,8 @@ export default async function CalendarPage({
   const to = ymd(lastDay);
 
   // 승인된 연차 조회 → 날짜별로 펼치기
-  const leaves = await getApprovedInRange(from, to);
-  const byDate = new Map<
-    string,
-    { name: string; type: string; dept: string | null }[]
-  >();
+  const leaves = await getTeamCalendar(from, to);
+  const byDate = new Map<string, CalPerson[]>();
   for (const lv of leaves) {
     let cur = parseDate(lv.start_date);
     const end = parseDate(lv.end_date);
@@ -59,16 +62,17 @@ export default async function CalendarPage({
       const key = ymd(cur);
       const arr = byDate.get(key) ?? [];
       arr.push({
-        name: lv.employee.name,
+        name: lv.name,
+        position: lv.position,
+        dept: lv.dept,
         type: LEAVE_TYPE_LABEL[lv.type],
-        dept: lv.employee.dept,
       });
       byDate.set(key, arr);
       cur = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 1);
     }
   }
 
-  // 달력 그리드 (앞뒤 빈칸 포함, 7의 배수로 패딩)
+  // 달력 그리드
   const cells: (Date | null)[] = [];
   for (let i = 0; i < firstDay.getDay(); i++) cells.push(null);
   for (let d = 1; d <= lastDay.getDate(); d++) cells.push(new Date(year, mon, d));
@@ -128,7 +132,8 @@ export default async function CalendarPage({
           {/* 날짜 셀 */}
           <div className="grid grid-cols-7">
             {cells.map((date, idx) => {
-              if (!date) return <div key={idx} className="min-h-24 border-b border-r" />;
+              if (!date)
+                return <div key={idx} className="min-h-28 border-b border-r" />;
               const key = ymd(date);
               const people = byDate.get(key) ?? [];
               const dow = date.getDay();
@@ -138,7 +143,7 @@ export default async function CalendarPage({
                 <div
                   key={idx}
                   className={cn(
-                    "min-h-24 border-b border-r p-1.5",
+                    "min-h-28 border-b border-r p-1.5",
                     idx % 7 === 0 && "border-l",
                   )}
                 >
@@ -162,18 +167,32 @@ export default async function CalendarPage({
                   </div>
 
                   <div className="space-y-0.5">
-                    {people.slice(0, 3).map((p, i) => (
-                      <div
-                        key={i}
-                        className="truncate rounded bg-muted px-1 py-0.5 text-[11px]"
-                        title={`${p.name} · ${p.dept ?? ""} · ${p.type}`}
-                      >
-                        {p.name}
-                        {p.type === "반차" && (
-                          <span className="text-muted-foreground"> (반)</span>
-                        )}
-                      </div>
-                    ))}
+                    {people.slice(0, 3).map((p, i) => {
+                      const meta =
+                        [p.dept, p.position].filter(Boolean).join(" · ") || null;
+                      return (
+                        <div
+                          key={i}
+                          className="rounded bg-muted px-1 py-0.5 leading-tight"
+                          title={`${p.name} · ${meta ?? "-"} · ${p.type}`}
+                        >
+                          <div className="truncate text-[11px] font-medium">
+                            {p.name}
+                            {p.type === "반차" && (
+                              <span className="font-normal text-muted-foreground">
+                                {" "}
+                                (반)
+                              </span>
+                            )}
+                          </div>
+                          {meta && (
+                            <div className="truncate text-[10px] text-muted-foreground">
+                              {meta}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                     {people.length > 3 && (
                       <div className="px-1 text-[10px] text-muted-foreground">
                         +{people.length - 3}명
@@ -188,7 +207,8 @@ export default async function CalendarPage({
       </Card>
 
       <p className="text-xs text-muted-foreground">
-        하루 3명 이상 연차 시 인원 배지로 표시됩니다. (업무 공백 확인용)
+        전 직원의 승인된 연차가 표시됩니다. 하루 3명 이상 연차 시 인원 배지로
+        안내됩니다. (업무 공백 확인용)
       </p>
     </div>
   );

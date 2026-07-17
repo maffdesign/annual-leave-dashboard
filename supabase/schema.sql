@@ -218,6 +218,37 @@ $$;
 grant execute on function public.department_coverage(uuid, date, date) to anon, authenticated;
 
 -- ============================================================
+-- 5d. [v2] 팀 캘린더 데이터 — 전 직원 승인 연차(안전 필드만)
+--     일반 직원은 RLS상 본인 연차만 보이므로, 캘린더 표시에 필요한
+--     이름·부서·직급·기간만 security definer 로 노출(사유 등은 제외).
+-- ============================================================
+create or replace function public.get_team_calendar(
+  p_start date,
+  p_end date
+)
+returns table (
+  name text,
+  dept text,
+  "position" text,
+  type leave_type,
+  start_date date,
+  end_date date
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select e.name, e.dept, e.position, r.type, r.start_date, r.end_date
+  from public.leave_requests r
+  join public.employees e on e.id = r.employee_id
+  where r.status = 'approved'
+    and r.start_date <= p_end
+    and r.end_date >= p_start;
+$$;
+
+grant execute on function public.get_team_calendar(date, date) to anon, authenticated;
+
+-- ============================================================
 -- 6. RLS (Row Level Security)
 -- ============================================================
 alter table public.employees      enable row level security;
