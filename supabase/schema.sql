@@ -170,7 +170,15 @@ insert into public.employees (name, dept, position, hire_date, role) values
   ('정우성', '영업팀',     '과장',  '2019-04-22', 'employee'),
   ('한소희', '영업팀',     '대리',  '2022-09-05', 'employee'),
   ('오현우', '경영지원팀', '사원',  '2026-02-03', 'employee'),
-  ('임지아', '개발팀',     '차장',  '2013-06-18', 'employee');
+  ('임지아', '개발팀',     '차장',  '2013-06-18', 'employee'),
+  ('강도현', '개발팀',     '주임',  '2024-03-11', 'employee'),
+  ('윤채원', '디자인팀',   '대리',  '2021-08-25', 'employee'),
+  ('배준호', '영업팀',     '사원',  '2026-04-01', 'employee'),
+  ('신예은', '마케팅팀',   '과장',  '2018-11-12', 'employee'),
+  ('조현우', '마케팅팀',   '사원',  '2025-06-20', 'employee'),
+  ('문지호', '인사팀',     '팀장',  '2011-02-14', 'employee'),
+  ('서다인', '인사팀',     '주임',  '2023-10-05', 'employee'),
+  ('홍지원', '개발팀',     '사원',  '2026-01-15', 'employee');
 
 insert into public.leave_balances (employee_id, year, granted, carried_over)
 select

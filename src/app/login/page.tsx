@@ -28,7 +28,7 @@ export default function LoginPage() {
         <div className="rounded-lg border border-dashed bg-card p-4 text-xs text-muted-foreground">
           <p className="mb-1 font-medium text-foreground">데모 계정</p>
           <p>관리자 · admin@demo.com / demo1234</p>
-          <p>직원 · user1@demo.com / demo1234</p>
+          <p>직원 · user1@demo.com ~ user5@demo.com / demo1234</p>
         </div>
       </div>
     </main>
