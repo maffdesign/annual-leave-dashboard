@@ -63,7 +63,7 @@ export function CancelButton({ requestId }: { requestId: string }) {
             onClick={() => !pending && setOpen(false)}
           />
           {/* 다이얼로그 */}
-          <div className="relative z-10 w-full max-w-sm rounded-lg border bg-card p-6 shadow-xl">
+          <div className="relative z-10 w-full max-w-sm rounded-lg border bg-card p-6 text-center shadow-xl">
             <h2 id="cancel-dialog-title" className="text-base font-semibold">
               연차를 취소할까요?
             </h2>
@@ -74,7 +74,7 @@ export function CancelButton({ requestId }: { requestId: string }) {
 
             {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
 
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="mt-6 flex justify-center gap-2">
               <Button
                 variant="ghost"
                 disabled={pending}
