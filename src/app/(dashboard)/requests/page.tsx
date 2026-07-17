@@ -87,8 +87,16 @@ export default async function RequestsPage() {
                       </TableCell>
                       <TableCell>{LEAVE_TYPE_LABEL[r.type]}</TableCell>
                       <TableCell className="text-right">{r.days}일</TableCell>
-                      <TableCell className="max-w-[180px] truncate text-muted-foreground">
-                        {r.reason ?? "-"}
+                      <TableCell className="max-w-[200px] text-muted-foreground">
+                        <div className="truncate">{r.reason ?? "-"}</div>
+                        {r.status === "cancelled" && r.cancel_reason && (
+                          <div
+                            className="mt-0.5 truncate text-xs text-amber-600 dark:text-amber-400"
+                            title={r.cancel_reason}
+                          >
+                            시기변경 사유: {r.cancel_reason}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         <StatusBadge status={r.status} />

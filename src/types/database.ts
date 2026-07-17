@@ -78,6 +78,7 @@ export interface Database {
           status: RequestStatus;
           coverage_warning: boolean;
           approver_id: string | null;
+          cancel_reason: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -92,6 +93,7 @@ export interface Database {
           status?: RequestStatus;
           coverage_warning?: boolean;
           approver_id?: string | null;
+          cancel_reason?: string | null;
         };
         Update: Partial<
           Database["public"]["Tables"]["leave_requests"]["Insert"]

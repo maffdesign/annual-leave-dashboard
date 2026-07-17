@@ -47,6 +47,7 @@ create table public.leave_requests (
   status      request_status not null default 'approved',  -- v2: 등록 시 즉시 승인
   coverage_warning boolean not null default false,          -- v2: 부서 커버리지 경고 여부
   approver_id uuid references public.employees(id) on delete set null,
+  cancel_reason text,                                       -- v2: 관리자 시기변경권 사유(필수)
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now(),
   constraint valid_period check (end_date >= start_date),
