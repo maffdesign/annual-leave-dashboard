@@ -12,8 +12,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ko">
-      <body className="min-h-screen bg-background antialiased">{children}</body>
+    // suppressHydrationWarning: 브라우저 확장/테마가 <html>·<body>에 속성을
+    // 주입해 발생하는 하이드레이션 경고를 억제(앱 트리 검증에는 영향 없음).
+    <html lang="ko" suppressHydrationWarning>
+      <body
+        className="min-h-screen bg-background antialiased"
+        suppressHydrationWarning
+      >
+        {children}
+      </body>
     </html>
   );
 }

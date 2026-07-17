@@ -3,63 +3,41 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentEmployee } from "@/queries/auth";
-import { getBalance } from "@/queries/balances";
-import type { RequestStatus } from "@/types";
 
-export type ApprovalResult = { error?: string };
+export type AdminActionResult = { error?: string };
 
 /**
- * 승인/반려 공통 처리.
- * - 관리자 권한 확인
- * - 이미 처리된(비-pending) 신청 재처리 방지
- * - 승인 시 잔여 초과 재검증 (여러 대기 신청 합산 초과 방어)
- * 승인되면 DB 트리거(recalc_leave_used)가 사용일수를 자동 반영한다.
+ * [v2] 관리자 시기변경권 — 예외적으로 등록된 연차를 취소.
+ * 자동 등록제에서 결재는 없지만, '막대한 지장'이 있는 경우 관리자가 개입할 수 있다.
+ * 개입은 근로자에게 설명 가능해야 하므로 '사유 입력을 필수'로 강제한다.
+ * 취소 시 DB 트리거(recalc_leave_used)가 잔여를 자동 복구한다.
  */
-async function decide(
+export async function adminCancelLeave(
   requestId: string,
-  status: Extract<RequestStatus, "approved" | "rejected">,
-): Promise<ApprovalResult> {
+  reason: string,
+): Promise<AdminActionResult> {
   const admin = await getCurrentEmployee();
   if (admin?.role !== "admin") return { error: "권한이 없습니다." };
 
+  const trimmed = (reason ?? "").trim();
+  if (!trimmed) return { error: "시기변경 사유를 입력해야 합니다." };
+
   const supabase = await createClient();
-
-  const { data: req, error: fetchErr } = await supabase
-    .from("leave_requests")
-    .select("employee_id, days, status")
-    .eq("id", requestId)
-    .single();
-
-  if (fetchErr || !req) return { error: "신청을 찾을 수 없습니다." };
-  if (req.status !== "pending") return { error: "이미 처리된 신청입니다." };
-
-  if (status === "approved") {
-    const balance = await getBalance(req.employee_id);
-    const remaining = balance?.remaining ?? 0;
-    if (req.days > remaining) {
-      return {
-        error: `승인 불가: 잔여 ${remaining}일 < 신청 ${req.days}일`,
-      };
-    }
-  }
 
   const { error } = await supabase
     .from("leave_requests")
-    .update({ status, approver_id: admin.id })
+    .update({
+      status: "cancelled",
+      approver_id: admin.id,
+      cancel_reason: trimmed,
+    })
     .eq("id", requestId)
-    .eq("status", "pending"); // 동시성 방어: 대기 상태일 때만 갱신
+    .eq("status", "approved");
 
   if (error) return { error: error.message };
 
-  revalidatePath("/admin/approvals");
+  revalidatePath("/admin/registrations");
   revalidatePath("/admin");
+  revalidatePath("/requests");
   return {};
-}
-
-export async function approveRequest(requestId: string): Promise<ApprovalResult> {
-  return decide(requestId, "approved");
-}
-
-export async function rejectRequest(requestId: string): Promise<ApprovalResult> {
-  return decide(requestId, "rejected");
 }

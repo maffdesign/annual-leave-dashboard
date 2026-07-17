@@ -1,9 +1,9 @@
 import type { LucideIcon } from "lucide-react";
 import {
   CalendarDays,
-  CheckSquare,
   ClipboardList,
   LayoutDashboard,
+  ListChecks,
   PlusCircle,
   Users,
 } from "lucide-react";
@@ -22,6 +22,6 @@ export const employeeNav: NavItem[] = [
 
 export const adminNav: NavItem[] = [
   { href: "/admin", label: "전 직원 현황", icon: Users },
-  { href: "/admin/approvals", label: "승인 대기", icon: CheckSquare },
+  { href: "/admin/registrations", label: "등록 현황", icon: ListChecks },
   { href: "/admin/calendar", label: "팀 캘린더", icon: CalendarDays },
 ];

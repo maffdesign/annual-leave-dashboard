@@ -25,6 +25,16 @@ export const LEAVE_TYPE_LABEL: Record<LeaveType, string> = {
 
 export const STATUS_LABEL: Record<RequestStatus, string> = {
   pending: "대기",
-  approved: "승인",
+  approved: "등록됨",
   rejected: "반려",
+  cancelled: "취소됨",
+};
+
+/** 부서 커버리지 계산 결과 (department_coverage RPC) */
+export type CoverageInfo = {
+  dept_size: number;
+  peak_count: number;
+  peak_ratio: number;
+  threshold: number;
+  over_threshold: boolean;
 };

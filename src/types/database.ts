@@ -9,7 +9,7 @@
 export type UserRole = "admin" | "employee";
 export type GrantType = "hire_date" | "fiscal_year"; // 입사일 / 회계연도 기준
 export type LeaveType = "full_day" | "half_day"; // 종일 / 반차
-export type RequestStatus = "pending" | "approved" | "rejected";
+export type RequestStatus = "pending" | "approved" | "rejected" | "cancelled";
 
 export interface Database {
   public: {
@@ -76,7 +76,9 @@ export interface Database {
           days: number;
           reason: string | null;
           status: RequestStatus;
+          coverage_warning: boolean;
           approver_id: string | null;
+          cancel_reason: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -89,7 +91,9 @@ export interface Database {
           days: number;
           reason?: string | null;
           status?: RequestStatus;
+          coverage_warning?: boolean;
           approver_id?: string | null;
+          cancel_reason?: string | null;
         };
         Update: Partial<
           Database["public"]["Tables"]["leave_requests"]["Insert"]
@@ -105,6 +109,16 @@ export interface Database {
       };
       is_admin: { Args: Record<string, never>; Returns: boolean };
       current_employee_id: { Args: Record<string, never>; Returns: string };
+      department_coverage: {
+        Args: { p_employee_id: string; p_start: string; p_end: string };
+        Returns: {
+          dept_size: number;
+          peak_count: number;
+          peak_ratio: number;
+          threshold: number;
+          over_threshold: boolean;
+        }[];
+      };
     };
     Enums: {
       user_role: UserRole;

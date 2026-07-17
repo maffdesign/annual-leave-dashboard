@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
-import { AlertCircle, CalendarClock, Send } from "lucide-react";
-import { createLeaveRequest, type RequestState } from "../actions";
+import { useActionState, useEffect, useMemo, useState } from "react";
+import { AlertCircle, AlertTriangle, CalendarClock, Send, Users } from "lucide-react";
+import { registerLeave, type RequestState } from "../actions";
 import { calculateLeaveDays } from "@/lib/calculateLeaveDays";
-import type { LeaveType } from "@/types";
+import { createClient } from "@/lib/supabase/client";
+import type { CoverageInfo, LeaveType } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,31 +14,59 @@ import { cn } from "@/lib/utils";
 
 const initialState: RequestState = {};
 
-export function RequestForm({ remaining }: { remaining: number }) {
+export function RequestForm({
+  remaining,
+  employeeId,
+}: {
+  remaining: number;
+  employeeId: string;
+}) {
   const [state, formAction, pending] = useActionState(
-    createLeaveRequest,
+    registerLeave,
     initialState,
   );
 
   const [type, setType] = useState<LeaveType>("full_day");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
+  const [coverage, setCoverage] = useState<CoverageInfo | null>(null);
 
   const effectiveEnd = type === "half_day" ? start : end || start;
 
-  // 실시간 신청일수 계산 (서버 로직과 동일한 함수 재사용)
   const days = useMemo(() => {
     if (!start || effectiveEnd < start) return 0;
     return calculateLeaveDays(start, effectiveEnd, type);
   }, [start, effectiveEnd, type]);
 
-  const exceeds = days > remaining;
+  // 실시간 부서 커버리지 조회 (경고용, 등록을 막지는 않음)
+  useEffect(() => {
+    if (!start || effectiveEnd < start) {
+      setCoverage(null);
+      return;
+    }
+    let cancelled = false;
+    const supabase = createClient();
+    supabase
+      .rpc("department_coverage", {
+        p_employee_id: employeeId,
+        p_start: start,
+        p_end: effectiveEnd,
+      })
+      .then(({ data }) => {
+        if (!cancelled) setCoverage(data && data.length > 0 ? data[0] : null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [start, effectiveEnd, employeeId]);
+
+  const exceeds = days > remaining; // 잔여 초과(하드): 등록 차단
   const afterRemaining = remaining - days;
   const canSubmit = start !== "" && days > 0 && !exceeds && !pending;
 
   return (
     <form action={formAction} className="space-y-6">
-      {/* 유형: 종일 / 반차 세그먼트 */}
+      {/* 유형 */}
       <div className="space-y-2">
         <Label>유형</Label>
         <input type="hidden" name="type" value={type} />
@@ -99,13 +128,11 @@ export function RequestForm({ remaining }: { remaining: number }) {
         />
       </div>
 
-      {/* 실시간 미리보기 */}
+      {/* 신청일수 · 잔여 (하드) */}
       <div
         className={cn(
           "flex items-center gap-3 rounded-lg border p-4",
-          exceeds
-            ? "border-destructive/40 bg-destructive/5"
-            : "bg-muted/40",
+          exceeds ? "border-destructive/40 bg-destructive/5" : "bg-muted/40",
         )}
       >
         <CalendarClock
@@ -116,30 +143,60 @@ export function RequestForm({ remaining }: { remaining: number }) {
         />
         <div className="text-sm">
           <p>
-            신청일수{" "}
-            <span className="font-semibold">{days}일</span>
-            <span className="text-muted-foreground">
-              {" "}
-              · 현재 잔여 {remaining}일
-            </span>
+            등록일수 <span className="font-semibold">{days}일</span>
+            <span className="text-muted-foreground"> · 현재 잔여 {remaining}일</span>
           </p>
           {exceeds ? (
             <p className="text-destructive">
-              잔여 연차를 {days - remaining}일 초과합니다.
+              잔여 연차를 {days - remaining}일 초과합니다. (등록 불가)
             </p>
           ) : days > 0 ? (
-            <p className="text-muted-foreground">
-              신청 후 잔여 {afterRemaining}일
-            </p>
+            <p className="text-muted-foreground">등록 후 잔여 {afterRemaining}일</p>
           ) : (
             <p className="text-muted-foreground">
-              날짜를 선택하면 신청일수가 계산됩니다.
+              날짜를 선택하면 등록일수가 계산됩니다.
             </p>
           )}
         </div>
       </div>
 
-      {/* 서버 에러 */}
+      {/* 부서 커버리지 (soft, 경고만) */}
+      {coverage && days > 0 && (
+        <div
+          className={cn(
+            "flex items-center gap-3 rounded-lg border p-4",
+            coverage.over_threshold
+              ? "border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40"
+              : "bg-muted/40",
+          )}
+        >
+          {coverage.over_threshold ? (
+            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+          ) : (
+            <Users className="h-5 w-5 shrink-0 text-muted-foreground" />
+          )}
+          <div className="text-sm">
+            <p>
+              같은 부서 최대{" "}
+              <span className="font-semibold">
+                {coverage.peak_count}/{coverage.dept_size}명
+              </span>{" "}
+              연차 ({Math.round(coverage.peak_ratio * 100)}%)
+            </p>
+            {coverage.over_threshold ? (
+              <p className="text-amber-700 dark:text-amber-400">
+                권장 한도({Math.round(coverage.threshold * 100)}%) 초과 — 등록은
+                가능하나 업무 공백을 확인해 주세요.
+              </p>
+            ) : (
+              <p className="text-muted-foreground">
+                권장 한도({Math.round(coverage.threshold * 100)}%) 이내입니다.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {state.error && (
         <p className="flex items-center gap-2 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 shrink-0" />
@@ -147,10 +204,10 @@ export function RequestForm({ remaining }: { remaining: number }) {
         </p>
       )}
 
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-end">
         <Button type="submit" disabled={!canSubmit}>
           <Send />
-          {pending ? "신청 중…" : "연차 신청"}
+          {pending ? "등록 중…" : "연차 등록"}
         </Button>
       </div>
     </form>
@@ -174,9 +231,7 @@ function TypeToggle({
       onClick={onClick}
       className={cn(
         "flex flex-col items-start rounded-lg border p-3 text-left transition-colors",
-        active
-          ? "border-primary bg-primary/5 ring-1 ring-primary"
-          : "hover:bg-accent",
+        active ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:bg-accent",
       )}
     >
       <span className="text-sm font-medium">{label}</span>
